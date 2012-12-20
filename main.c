@@ -1,20 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "struct.h"
 
 int is_new(int pid, int *packets) {
 	int i=0;
 	while(pid>=packets[i])
 		i++;
 	if(packets[i]!=pid) {
-		
 		return 1;
 	}
 	else
 		return 0;
-
 }
 
-int new_packet(int code, int pid, int i) {
+int new_packet(node *reseau, int code, int pid, int pos, int i) {
 	static int nb_packets = 0;
 	static int nb_emited=0;
 	static int nb_traited=0;
@@ -22,28 +21,37 @@ int new_packet(int code, int pid, int i) {
 	static int nb_destroyed=0;
 	
 	if(i==2) {      // On actualise les informations
-		if(code == 0) // Paquet émis
+		if(code == 0) {// Paquet émis
 			nb_emited++;
-		else if(code == 1)  // Paquet arrivé dans un noeud intermédiaire
+			reseau[pos].nb_emited++;
+		}
+		else if(code == 1) {  // Paquet arrivé dans un noeud intermédiaire
 			nb_traited++;
-		else if(code == 3)  // Paquet arrivé à destination
+			reseau[pos].nb_traited++;
+		}
+		else if(code == 3) { // Paquet arrivé à destination
 			nb_recieved++;
-		else if(code == 4)  // Destruction d'un paquet (file pleine)
-			nb_destroyed++;		
+			reseau[pos].nb_recieved++;
+		}
+		else if(code == 4) { // Destruction d'un paquet (file pleine)
+			nb_destroyed++;
+			reseau[pos].nb_destroyed++;		
+	  }
 		return 0;
 	}
-	// Sinon, on demande à récupérer les données
-	else if (i==0)  // Paquet émis
-		return nb_emited;
-	else if (i==1)  // Paquet arrivé dans un noeud intermédiaire
-		return nb_traited;
-	else if (i==3)  // Paquet arrivé à destination
-		return nb_recieved;
-	else if (i==4)  // Destruction d'un paquet (file pleine)
-		return nb_destroyed;
-	else {
-		printf("Probleme new_packet(), wrong i\n");
-		return -1;
+	else {// Sinon, on demande à récupérer les données
+	  if (i==0)  // Paquet émis
+		  return nb_emited;
+	  else if (i==1)  // Paquet arrivé dans un noeud intermédiaire
+		  return nb_traited;
+	  else if (i==3)  // Paquet arrivé à destination
+		  return nb_recieved;
+	  else if (i==4)  // Destruction d'un paquet (file pleine)
+		  return nb_destroyed;
+	  else {
+		  printf("Probleme new_packet(), wrong i\n");
+		  return -1;
+	  }
 	}
 }
 
@@ -117,6 +125,14 @@ int analyze_matrix(FILE* matrice) {
 		  printf("\n");
 		}
 	}
+	return j;
+}
+
+void print_stats_lost_packets(node* reseau, int size, int total) {
+  int i;
+  for(i=0;i<size;i++) {
+    printf("Nombre de packets perdus par le noeud N%d : %d ; soit %lf \%\n",i+1,reseau[i].nb_destroyed,(float)reseau[i].nb_destroyed/total*100 );
+  }
 
 }
 
@@ -126,10 +142,17 @@ int main(int argc, char *argv[]) {
 
 	float t;
 	int code, pid, fid, tos, s, d, pos, bif;
-	int nb_fid;
+	int nb_fid, nb_node;
+	node *reseau;
 
-	analyze_matrix(matrice);
+  node test = {10,0,0,0,0,0};
 
+	nb_node = analyze_matrix(matrice);
+	
+	reseau = calloc(nb_node, sizeof(node));
+
+  printf("\nTest : %d\n", reseau[5].nb_emited);
+  
 	if(fichier != NULL) {
 		printf("On commence l'analyse du fichier\n");
 		while(fscanf(fichier, "%f %d ", &t, &code)==2) { // Tant que le fscanf recupere 2 valeurs, on continue de parser
@@ -142,16 +165,18 @@ int main(int argc, char *argv[]) {
 				fscanf(fichier, "%d %d %d %d N%d N%d N%d\n", &pid, &fid, &tos, &bif, &s, &d, &pos);
 //				printf("%f %d %d %d %d %d N%d N%d N%d\n", t, code, pid, fid, tos, bif, s, d, pos);
 			}
-			new_packet(code, pid, 2);
+			new_packet(reseau, code, pid, pos, 2);
 			nb_fid = max_fid(fid);
 		}
 		if(feof(fichier)) {
-			printf("Fin du fichier\n");
+			printf("Fin de l'analyse du fichier\n\n");
+      printf("Statistiques observées : \n");
 			printf("Nombre de flux : %d\n", nb_fid);
-			printf("Nombre de paquets emis : %d\n", new_packet(0,0,0));
-			printf("Nombre de paquets transmis : %d\n", new_packet(0,0,1));
-			printf("Nombre de paquets recus : %d\n", new_packet(0,0,3));
-			printf("Nombre de paquets perdus : %d\n", new_packet(0,0,4));
+			printf("Nombre de paquets emis : %d\n", new_packet(NULL,0,0,0,0));
+			printf("Nombre de paquets transmis : %d\n", new_packet(NULL,0,0,0,1));
+			printf("Nombre de paquets recus : %d\n", new_packet(NULL,0,0,0,3));
+			printf("Nombre de paquets perdus : %d\n", new_packet(NULL,0,0,0,4));
+			print_stats_lost_packets(reseau, nb_node, new_packet(NULL,0,0,0,4));
 			
 		}
 		else
@@ -164,7 +189,10 @@ int main(int argc, char *argv[]) {
 		printf("Fin du programme\n");
 	}
 
-
+  printf("Pas de problemes, Fin du programme\n");
+  
+  free(reseau);
+  
 	return 0;		
 	
 }
