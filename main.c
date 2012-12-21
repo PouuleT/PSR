@@ -322,7 +322,7 @@ int analyze_matrix(FILE* matrice, int m[50][50]) {
 		return -1;
 	}
 	else {
-		printf("On commence l'analyse du fichier de matrice\n");
+		printf("Analyse du fichier de matrice ... ");
     do
  		{
       c = fgetc(matrice);
@@ -357,15 +357,16 @@ int analyze_matrix(FILE* matrice, int m[50][50]) {
 	      exit(-1);
       }
  	 	} while (!end);
-		printf("Le fichier comporte %d lignes\n", j);
+		//printf("Le fichier comporte %d lignes\n", j);
 		
-		for(o=0;o<j;o++) {
+		/*for(o=0;o<j;o++) {
 		  for(p=0;p<j;p++) {
 		    printf("%d ", m[p][o]);
 		  }
 		  printf("\n");
-		}
+		}*/
 	}
+	printf("Done\n");
 	return j;
 }
 
@@ -446,13 +447,13 @@ void analyze_and_do_packet(packet *p_temp, chain *temp, int code, log *stats) {
 }
 
 void print_stat_flux(flux *flow) {
-  printf("Flux fid = %d\n entre N%d et N%d", flow->fid, flow->source, flow->destination);
+  printf("Flux fid = %d entre N%d et N%d\n", flow->fid, flow->source, flow->destination);
   printf("\tNombre de paquets emis : %d\n",flow->nb_packets);
   printf("\tNombre de paquets recus : %d\n",flow->nb_recieved);
   printf("\tNombre de paquets perdus : %d\n",flow->nb_destroyed);
-  printf("\tTaux de perte : %f\n",(float)flow->nb_destroyed/flow->nb_packets);
+  printf("\tTaux de perte : %f\%\n",(float)flow->nb_destroyed/flow->nb_packets*100);
   printf("\tTemps cumule passe dans les files : %fs\n",flow->packet_wait);
-  printf("\tDuree de vie : %f\n", flow->end-flow->start);
+  printf("\tDuree de vie : %fs\n", flow->end-flow->start);
 }
 
 int main(int argc, char *argv[]) {
@@ -475,9 +476,9 @@ int main(int argc, char *argv[]) {
 	
 	reseau = calloc(nb_node, sizeof(node));
 	
-  if(argc==2) {
+  if(argc==3) {
 	  if(fichier != NULL) {
-		  printf("On commence l'analyse du fichier\n");
+		  //printf("On commence l'analyse du fichier\n");
 		  while(fscanf(fichier, "%f %d ", &t, &code)==2) { // Tant que le fscanf recupere 2 valeurs, on continue de parser
 			  if(code==4) {
 				  fscanf(fichier, "%d %d %d N%d N%d N%d\n", &pid, &fid, &tos, &s, &d, &pos);
@@ -508,13 +509,13 @@ int main(int argc, char *argv[]) {
 			  printf("Nombre de paquets transmis : %d\n", new_packet(NULL,0,0,0,1));
 			  printf("Nombre de paquets recus : %d\n", new_packet(NULL,0,0,0,3));
 			  printf("Nombre de paquets perdus : %d\n", new_packet(NULL,0,0,0,4));
-			  printf("Taux de perte : %f\n", (float)new_packet(NULL,0,0,0,4)/new_packet(NULL,0,0,0,0)*100);
+			  printf("Taux de perte : %f\%\n", (float)new_packet(NULL,0,0,0,4)/new_packet(NULL,0,0,0,0)*100);
 			  printf("Nombre de sauts moyen : %f\n", (float)new_packet(NULL,0,0,0,1)/new_packet(NULL,0,0,0,0));
 			  printf("Nombre de paquets moyen par flux : %f\n", (float)new_packet(NULL,0,0,0,0)/(nb_fid+1));
-			  printf("Delai moyen de bout en bout : %f\n", (float)stats.total_delay/new_packet(NULL,0,0,0,3));
-        printf("Temps total cumulé d'attente : %f\n",stats.total_wait);
-        printf("Temps moyen d'attente par files : %f\n", (float)stats.total_wait/(new_packet(NULL,0,0,0,1)+new_packet(NULL,0,0,0,0)));
-        printf("Temps moyen d'attente par paquets : %f\n", (float)stats.total_wait/(new_packet(NULL,0,0,0,3)+new_packet(NULL,0,0,0,4)));
+			  printf("Delai moyen de bout en bout : %fs\n", (float)stats.total_delay/new_packet(NULL,0,0,0,3));
+        printf("Temps total cumulé d'attente : %fs\n",stats.total_wait);
+        printf("Temps moyen d'attente par files : %fs\n", (float)stats.total_wait/(new_packet(NULL,0,0,0,1)+new_packet(NULL,0,0,0,0)));
+        printf("Temps moyen d'attente par paquets : %fs\n", (float)stats.total_wait/(new_packet(NULL,0,0,0,3)+new_packet(NULL,0,0,0,4)));
 			  print_stats_lost_packets(reseau, nb_node, new_packet(NULL,0,0,0,4));
 			
 		  }
@@ -531,14 +532,14 @@ int main(int argc, char *argv[]) {
   else if(argc == 5) {
     if(atoi(argv[3])==0) {
       int the_pid = atoi(argv[4]);
-      printf("\nDebut de l'analyse d'un paquet\n");
+      printf("\nAnalyse d'un paquet\n");
 /*      printf("\n%d %d %d\n\n",m[0][3],m[3][0],m[0][19]);
       printf("%d %d %d\n",m[23][19],m[19][1],m[1][16]);
       printf("%d %d %d\n",m[22][18],m[18][0],m[0][15]);
       printf("%d %d %d\n",m[19][23],m[1][19],m[16][1]);
       printf("%d %d %d\n",m[18][22],m[0][18],m[15][0]);*/
 	    if(fichier != NULL) {
-		    printf("On commence l'analyse du fichier\n");
+		    //printf("On commence l'analyse du fichier\n");
 		    while(fscanf(fichier, "%f %d ", &t, &code)==2) { // Tant que le fscanf recupere 2 valeurs, on continue de parser
 			    if(code==4) {
 				    fscanf(fichier, "%d %d %d N%d N%d N%d\n", &pid, &fid, &tos, &s, &d, &pos);
@@ -555,7 +556,7 @@ int main(int argc, char *argv[]) {
 			      }
 			      else if(code == 1) {
 			        printf("-t=%f\tArrive a N%d (Temps d'acheminement : %f)\n",t,pos,t-last_t);
-			        printf("\nDebit entre %d et %d = %d\n",last_pos, pos,m[last_pos-1][pos-1]);
+			        //printf("\nDebit entre %d et %d = %d\n",last_pos, pos,m[last_pos-1][pos-1]);
 			        last_pos = pos;
 			        last_t = t;
 			      }
@@ -577,7 +578,7 @@ int main(int argc, char *argv[]) {
 		      }
 		    }
 		    if(feof(fichier)) {
-			    printf("Fin de l'analyse du fichier\n\n");
+			    printf("Fin\n");// de l'analyse du fichier\n\n");
 			  }
 			}
 	    else {
@@ -586,7 +587,7 @@ int main(int argc, char *argv[]) {
 	    }
     }
     else if(atoi(argv[3])==1) {
-      printf("\nDebut de l'analyse d'un flux\n");
+      printf("\nAnalyse d'un flux ... ");
       int the_fid = atoi(argv[4]);
       int first=1;
       flux flow={0.};
@@ -594,7 +595,7 @@ int main(int argc, char *argv[]) {
       flow.fid = the_fid;
       
 	    if(fichier != NULL) {
-		    printf("On commence l'analyse du fichier\n");
+		    //printf("On commence l'analyse du fichier\n");
 		    while(fscanf(fichier, "%f %d ", &t, &code)==2) { // Tant que le fscanf recupere 2 valeurs, on continue de parser
 			    if(code==4) {
 				    fscanf(fichier, "%d %d %d N%d N%d N%d\n", &pid, &fid, &tos, &s, &d, &pos);
@@ -657,8 +658,9 @@ int main(int argc, char *argv[]) {
 		      }
 		    }
 		    if(feof(fichier)) {
-			    printf("Fin de l'analyse du fichier\n\n");
+			    printf("Fin\n");// de l'analyse du fichier\n\n");
 			  }
+			  //printf("Done\n");
 			  print_stat_flux(&flow);
 			}
 	    else {
@@ -690,7 +692,7 @@ int main(int argc, char *argv[]) {
   
   printf("Fin du programme\n");
   
-  free(reseau);
+  //free(reseau);
   
 	return 0;		
 	
