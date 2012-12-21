@@ -40,4 +40,20 @@ typedef struct log{
 	float total_wait;
 }log;
 
+typedef struct flux{
+  int fid;
+  int source;
+  int destination;
+  int nb_packets;
+	int nb_emited;
+	int nb_traited;
+	int nb_recieved;
+	int nb_destroyed;
+	float packet_wait;
+	float start;
+	float end;
+	float avg_delay;
+}flux;
+
+
 #endif

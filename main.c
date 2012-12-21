@@ -299,14 +299,21 @@ int max_fid(int fid) {
   return nb_fid;
 }
 
-int analyze_matrix(FILE* matrice) {
+float max_time(float t) {
+	static float max=0.;
+	if(max<t)
+		max=t;
+  return max;
+}
+
+int analyze_matrix(FILE* matrice, int m[50][50]) {
 	char car[5];
 	
 	int i=0,j=0;
 	int o,p;
 	int end=0;
 	int k=0;
-	int m[50][50];
+
   char c;
 
 	if(matrice == NULL) {
@@ -438,14 +445,25 @@ void analyze_and_do_packet(packet *p_temp, chain *temp, int code, log *stats) {
   }
 }
 
+void print_stat_flux(flux *flow) {
+  printf("Flux fid = %d\n entre N%d et N%d", flow->fid, flow->source, flow->destination);
+  printf("\tNombre de paquets emis : %d\n",flow->nb_packets);
+  printf("\tNombre de paquets recus : %d\n",flow->nb_recieved);
+  printf("\tNombre de paquets perdus : %d\n",flow->nb_destroyed);
+  printf("\tTaux de perte : %f\n",(float)flow->nb_destroyed/flow->nb_packets);
+  printf("\tTemps cumule passe dans les files : %fs\n",flow->packet_wait);
+  printf("\tDuree de vie : %f\n", flow->end-flow->start);
+}
+
 int main(int argc, char *argv[]) {
 	FILE* fichier = fopen(argv[1],"r");
 	FILE* matrice = fopen(argv[2],"r");
 
-	float t;
-	int code, pid, fid, tos, s, d, pos, bif,i=0;
-	int nb_fid, nb_node;
+	float t, last_t, packet_wait=0;
+	int code, pid, fid, tos, s, d, pos, bif,i=0, size;
+	int nb_fid, nb_node, last_pos=0;
 	node *reseau;
+	int m[50][50];
 
   node test = {10,0,0,0,0,0};
 
@@ -453,63 +471,224 @@ int main(int argc, char *argv[]) {
   packet p_temp = {0};
   log stats;
   
-	nb_node = analyze_matrix(matrice);
+	nb_node = analyze_matrix(matrice,m);
 	
 	reseau = calloc(nb_node, sizeof(node));
 	
-  
-	if(fichier != NULL) {
-		printf("On commence l'analyse du fichier\n");
-		while(fscanf(fichier, "%f %d ", &t, &code)==2) { // Tant que le fscanf recupere 2 valeurs, on continue de parser
-			if(code==4) {
-				fscanf(fichier, "%d %d %d N%d N%d N%d\n", &pid, &fid, &tos, &s, &d, &pos);
-			}
-			else {
-				fscanf(fichier, "%d %d %d %d N%d N%d N%d\n", &pid, &fid, &tos, &bif, &s, &d, &pos);
-			}
-			create_packet(&p_temp,t, code, pid, fid, tos, s, d, pos);   // On met les valeurs dans p_temp
-			//printf("On a cree le paquet p_temp : \n");
-			//print_packet(&p_temp);
-			analyze_and_do_packet(&p_temp, &temp, code, &stats);
-			new_packet(reseau, code, pid, pos, 2);
-			nb_fid = max_fid(fid);
-			//printf("Nombre d'elements : %d\n",nombreElements(temp));
-			//afficherListe(temp);
-			//printf("\n");
-			/*if(i==1000) {
-			  printf("Manual break\n");
-			  break;
-			  }*/
-			i++;
-		}
-		if(feof(fichier)) {
-			printf("Fin de l'analyse du fichier\n\n");
-      printf("Statistiques observées : \n");
-			printf("Nombre de flux : %d\n", nb_fid+1);
-			printf("Nombre de paquets emis : %d\n", new_packet(NULL,0,0,0,0));
-			printf("Nombre de paquets transmis : %d\n", new_packet(NULL,0,0,0,1));
-			printf("Nombre de paquets recus : %d\n", new_packet(NULL,0,0,0,3));
-			printf("Nombre de paquets perdus : %d\n", new_packet(NULL,0,0,0,4));
-			printf("Taux de perte : %f\n", (float)new_packet(NULL,0,0,0,4)/new_packet(NULL,0,0,0,0)*100);
-			printf("Nombre de sauts moyen : %f\n", (float)new_packet(NULL,0,0,0,1)/new_packet(NULL,0,0,0,0));
-			printf("Delai moyen de bout en bout : %f\n", (float)stats.total_delay/new_packet(NULL,0,0,0,3));
-      printf("Temps total cumulé d'attente : %f\n",stats.total_wait);
-      printf("Temps moyen d'attente par files : %f\n", (float)stats.total_wait/(new_packet(NULL,0,0,0,1)+new_packet(NULL,0,0,0,0)));
-      printf("Temps moyen d'attente par paquets : %f\n", (float)stats.total_wait/(new_packet(NULL,0,0,0,3)+new_packet(NULL,0,0,0,4)));
-			print_stats_lost_packets(reseau, nb_node, new_packet(NULL,0,0,0,4));
+  if(argc==2) {
+	  if(fichier != NULL) {
+		  printf("On commence l'analyse du fichier\n");
+		  while(fscanf(fichier, "%f %d ", &t, &code)==2) { // Tant que le fscanf recupere 2 valeurs, on continue de parser
+			  if(code==4) {
+				  fscanf(fichier, "%d %d %d N%d N%d N%d\n", &pid, &fid, &tos, &s, &d, &pos);
+			  }
+			  else {
+				  fscanf(fichier, "%d %d %d %d N%d N%d N%d\n", &pid, &fid, &tos, &bif, &s, &d, &pos);
+			  }
+			  create_packet(&p_temp,t, code, pid, fid, tos, s, d, pos);   // On met les valeurs dans p_temp
+			  //printf("On a cree le paquet p_temp : \n");
+			  //print_packet(&p_temp);
+			  analyze_and_do_packet(&p_temp, &temp, code, &stats);
+			  new_packet(reseau, code, pid, pos, 2);
+			  nb_fid = max_fid(fid);
+			  //printf("Nombre d'elements : %d\n",nombreElements(temp));
+			  //afficherListe(temp);
+			  //printf("\n");
+			  /*if(i==1000) {
+			    printf("Manual break\n");
+			    break;
+			    }*/
+			  i++;
+		  }
+		  if(feof(fichier)) {
+			  printf("Fin de l'analyse du fichier\n\n");
+        printf("Statistiques observées : \n");
+			  printf("Nombre de flux : %d\n", nb_fid+1);
+			  printf("Nombre de paquets emis : %d\n", new_packet(NULL,0,0,0,0));
+			  printf("Nombre de paquets transmis : %d\n", new_packet(NULL,0,0,0,1));
+			  printf("Nombre de paquets recus : %d\n", new_packet(NULL,0,0,0,3));
+			  printf("Nombre de paquets perdus : %d\n", new_packet(NULL,0,0,0,4));
+			  printf("Taux de perte : %f\n", (float)new_packet(NULL,0,0,0,4)/new_packet(NULL,0,0,0,0)*100);
+			  printf("Nombre de sauts moyen : %f\n", (float)new_packet(NULL,0,0,0,1)/new_packet(NULL,0,0,0,0));
+			  printf("Nombre de paquets moyen par flux : %f\n", (float)new_packet(NULL,0,0,0,0)/(nb_fid+1));
+			  printf("Delai moyen de bout en bout : %f\n", (float)stats.total_delay/new_packet(NULL,0,0,0,3));
+        printf("Temps total cumulé d'attente : %f\n",stats.total_wait);
+        printf("Temps moyen d'attente par files : %f\n", (float)stats.total_wait/(new_packet(NULL,0,0,0,1)+new_packet(NULL,0,0,0,0)));
+        printf("Temps moyen d'attente par paquets : %f\n", (float)stats.total_wait/(new_packet(NULL,0,0,0,3)+new_packet(NULL,0,0,0,4)));
+			  print_stats_lost_packets(reseau, nb_node, new_packet(NULL,0,0,0,4));
 			
-		}
-		else
-			printf("Probleme de lecture\n");
+		  }
+		  else
+			  printf("Probleme de lecture\n");
 
-		fclose(fichier);
-	}
-	else {
-		printf("Impossible d'ouvrir le fichier %s\n", argv[1]);
-		printf("Fin du programme\n");
-	}
-
-  printf("Pas de problemes, Fin du programme\n");
+		  fclose(fichier);
+	  }
+	  else {
+		  printf("Impossible d'ouvrir le fichier %s\n", argv[1]);
+		  printf("Fin du programme\n");
+	  }
+  }
+  else if(argc == 5) {
+    if(atoi(argv[3])==0) {
+      int the_pid = atoi(argv[4]);
+      printf("\nDebut de l'analyse d'un paquet\n");
+/*      printf("\n%d %d %d\n\n",m[0][3],m[3][0],m[0][19]);
+      printf("%d %d %d\n",m[23][19],m[19][1],m[1][16]);
+      printf("%d %d %d\n",m[22][18],m[18][0],m[0][15]);
+      printf("%d %d %d\n",m[19][23],m[1][19],m[16][1]);
+      printf("%d %d %d\n",m[18][22],m[0][18],m[15][0]);*/
+	    if(fichier != NULL) {
+		    printf("On commence l'analyse du fichier\n");
+		    while(fscanf(fichier, "%f %d ", &t, &code)==2) { // Tant que le fscanf recupere 2 valeurs, on continue de parser
+			    if(code==4) {
+				    fscanf(fichier, "%d %d %d N%d N%d N%d\n", &pid, &fid, &tos, &s, &d, &pos);
+			    }
+			    else {
+				    fscanf(fichier, "%d %d %d %d N%d N%d N%d\n", &pid, &fid, &tos, &bif, &s, &d, &pos);
+			    }
+			    if(pid==the_pid) {
+			      create_packet(&p_temp,t, code, pid, fid, tos, s, d, pos);   // On met les valeurs dans p_temp
+			      if(code==0) {
+			        printf("-t=%f\tPaquet %d, depart : N%d, destination : N%d\n",t,the_pid,s,d);
+			        last_t = t;
+			        last_pos=pos;
+			      }
+			      else if(code == 1) {
+			        printf("-t=%f\tArrive a N%d (Temps d'acheminement : %f)\n",t,pos,t-last_t);
+			        printf("\nDebit entre %d et %d = %d\n",last_pos, pos,m[last_pos-1][pos-1]);
+			        last_pos = pos;
+			        last_t = t;
+			      }
+			      else if(code == 2) {
+			        printf("-t=%f\tPart de N%d a destination de N%d apres avoir passe %fs en attente\n", t,last_pos, pos, t-last_t);
+			        packet_wait = packet_wait + t-last_t;
+			      }
+			      else if(code == 3) {
+			        printf("-t=%f\tArrive a destination au noeud N%d\n",t,pos);
+			        printf("\tTemps total passe en attente : %f\n",packet_wait);
+			        printf("\tTemps total : %f\n",t-p_temp.departure);
+			      }
+			      else if(code == 4) {
+			      }
+			      else {
+			        printf("Probleme, code de paquet invalide\n");
+			        exit(-1);
+			      }
+		      }
+		    }
+		    if(feof(fichier)) {
+			    printf("Fin de l'analyse du fichier\n\n");
+			  }
+			}
+	    else {
+		    printf("Impossible d'ouvrir le fichier %s\n", argv[1]);
+		    printf("Fin du programme\n");
+	    }
+    }
+    else if(atoi(argv[3])==1) {
+      printf("\nDebut de l'analyse d'un flux\n");
+      int the_fid = atoi(argv[4]);
+      int first=1;
+      flux flow={0.};
+      
+      flow.fid = the_fid;
+      
+	    if(fichier != NULL) {
+		    printf("On commence l'analyse du fichier\n");
+		    while(fscanf(fichier, "%f %d ", &t, &code)==2) { // Tant que le fscanf recupere 2 valeurs, on continue de parser
+			    if(code==4) {
+				    fscanf(fichier, "%d %d %d N%d N%d N%d\n", &pid, &fid, &tos, &s, &d, &pos);
+			    }
+			    else {
+				    fscanf(fichier, "%d %d %d %d N%d N%d N%d\n", &pid, &fid, &tos, &bif, &s, &d, &pos);
+			    }
+			    if(fid==the_fid) {
+			      create_packet(&p_temp,t, code, pid, fid, tos, s, d, pos);   // On met les valeurs dans p_temp
+			      
+/*typedef struct flux{
+  int nb_packets;
+	int nb_emited;
+	int nb_traited;
+	int nb_recieved;
+	int nb_destroyed;
+	float start;
+	float end;
+	float avg_delay;
+}flux;*/
+			      
+			      if(code==0) {
+			        //printf("-t=%f\tFlux %d, depart : N%d, destination : N%d\n",t,the_fid,s,d);
+			        last_t = t;
+			        //last_pos=pos;
+			        if(first){
+			          flow.source = s;
+			          flow.destination = d;
+  			        flow.start = t;
+  			        first = 0;
+  			        }
+			        flow.nb_packets++;
+			      }
+			      else if(code == 1) {
+			        /*printf("-t=%f\tArrive a N%d (Temps d'acheminement : %f)\n",t,pos,t-last_t);
+			        printf("\nDebit entre %d et %d = %d\n",last_pos, pos,m[last_pos-1][pos-1]);
+			        last_pos = pos;*/
+			        last_t = t;
+			        flow.nb_traited++;
+			      }
+			      else if(code == 2) {
+			        /*printf("-t=%f\tPart de N%d a destination de N%d apres avoir passe %fs en attente\n", t,last_pos, pos, t-last_t);
+			        */
+			        flow.packet_wait = packet_wait + t-last_t;
+			      }
+			      else if(code == 3) {
+			        /*printf("-t=%f\tArrive a destination au noeud N%d\n",t,pos);
+			        printf("\tTemps total passe en attente : %f\n",packet_wait);
+			        printf("\tTemps total : %f\n",t-p_temp.departure);*/
+			        flow.nb_recieved++;
+  		        flow.end = max_time(t);
+			      }
+			      else if(code == 4) {
+			        flow.nb_destroyed++;
+			      }
+			      else {
+			        printf("Probleme, code de paquet invalide\n");
+			        exit(-1);
+			      }
+		      }
+		    }
+		    if(feof(fichier)) {
+			    printf("Fin de l'analyse du fichier\n\n");
+			  }
+			  print_stat_flux(&flow);
+			}
+	    else {
+		    printf("Impossible d'ouvrir le fichier %s\n", argv[1]);
+		    printf("Fin du programme\n");
+	    }
+    }
+    else {
+      printf("\nCette fonction n'existe pas\n");
+    }
+  }
+  else if(argc==6) {
+    printf("\nDebut de l'analyse des flux entre deux noeuds\n");
+    printf("Fonction pas encore en place\n");
+  }
+  else {
+    printf("Mauvais appel de la fonction\n");
+    printf("Syntaxe pour les statistiques globales :\n");
+    printf("\tprog nomdufichiersource nomdufichiermap\n");
+    printf("Syntaxe pour les statistiques particulières :\n");
+    printf("Pour les statistiques d'un paquet :\n");
+    printf("\tprog nomdufichiersource nomdufichiermap 0 pid\n");
+    printf("Pour les statistiques d'un flux :\n");
+    printf("\tprog nomdufichiersource nomdufichiermap 1 fid\n");
+    printf("Pour les statistiques entre deux noeuds :\n");
+    printf("\tprog nomdufichiersource nomdufichiermap 2 idnoeud1 idnoeud2\n");
+    printf("\n\n");
+  }
+  
+  printf("Fin du programme\n");
   
   free(reseau);
   
