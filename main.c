@@ -2,6 +2,197 @@
 #include <stdlib.h>
 #include "struct.h"
 
+
+void print_packet(packet *p) {
+  printf("Packet :\n");
+  printf("\tpid : %d\n",p->pid);
+  printf("\tfid : %d\n",p->fid);
+  printf("\tsource : %d\n",p->source);
+  printf("\tdestination : %d\n",p->destination);
+  printf("\tdepart : %f\n",p->departure);  
+  printf("\tlast_time : %f\n",p->last_time);  
+  printf("\tsize : %d\n",p->size);
+  printf("\tpos : %d\n",p->pos);
+  printf("\n");
+}
+
+void copy(packet* el, packet* old){ // On copie old dans el
+  el->source = old->source;
+  el->destination = old->destination;
+  el->pid = old->pid;
+  el->fid = old->fid;
+  el->departure = old->departure;
+  el->last_time = old->last_time;
+  el->size = old->size;
+  el->pos = old->pos;
+}
+
+chain add_chain(chain l, packet* el) {
+  mail* new_el = malloc(sizeof(mail));
+  //printf("add_chain:On va rajouter au debut de la chaine le paquet : \n");
+  //print_packet(el);
+  copy(&(new_el->el), el);
+  //printf("add_chain:On a copier le paquet, on affiche le nouveau \n");
+  //print_packet(&(new_el->el));
+//  new_el->el= el;
+  new_el->next=l;
+  //printf("add_chain:Tout s'est bien passer, on part\n");
+  return new_el;
+}
+
+chain add_chain_end(chain liste, packet valeur)
+{
+  /* On crée un nouvel élément */
+  mail* nouvelElement = malloc(sizeof(mail));
+  /* On assigne la valeur au nouvel élément */
+  nouvelElement->el = valeur;
+  /* On ajoute en fin, donc aucun élément ne va suivre */
+  nouvelElement->next = NULL;
+
+  if(liste == NULL)
+  {
+      /* Si la liste est videé il suffit de renvoyer l'élément créé */
+      return nouvelElement;
+  }
+  else
+  {
+    mail* temp=liste;
+    while(temp->next != NULL)
+    {
+        temp = temp->next;
+    }
+    temp->next = nouvelElement;
+    return liste;
+  }
+}
+
+int is_empty(chain l) {
+  if(l==NULL)
+    return 1;
+  else
+    return 0;
+}
+
+chain delElementEnTete(chain liste)
+{
+  if(liste != NULL)
+  {
+    /* Si la liste est non vide, on se prépare à renvoyer l'adresse de
+    l'élément en 2ème position */
+    mail* aRenvoyer = liste->next;
+    /* On libère le premier élément */
+    free(liste);
+    /* On retourne le nouveau début de la liste */
+    return aRenvoyer;
+  }
+  else
+  {
+    return NULL;
+  }
+}
+
+chain delElementEnFin(chain liste)
+{
+  /* Si la liste est vide, on retourne NULL */
+  if(liste == NULL)
+    return NULL;
+
+  /* Si la liste contient un seul élément */
+  if(liste->next == NULL)
+  {
+    /* On le libère et on retourne NULL (la liste est maintenant vide) */
+    free(liste);
+    return NULL;
+  }
+
+  /* Si la liste contient au moins deux éléments */
+  mail* tmp = liste;
+  mail* ptmp = liste;
+  /* Tant qu'on n'est pas au dernier élément */
+  while(tmp->next != NULL)
+  {
+    /* ptmp stock l'adresse de tmp */
+    ptmp = tmp;
+    /* On déplace tmp (mais ptmp garde l'ancienne valeur de tmp */
+    tmp = tmp->next;
+  }
+  /* A la sortie de la boucle, tmp pointe sur le dernier élément, et ptmp sur
+  l'avant-dernier. On indique que l'avant-dernier devient la fin de la liste
+  et on supprime le dernier élément */
+  ptmp->next = NULL;
+  free(tmp);
+  return liste;
+}
+
+chain delElement(chain liste, int valeur)
+{
+    /* Liste vide, il n'y a plus rien à supprimer */
+
+  if(liste == NULL)
+    return NULL;
+ 
+    /* Si l'élément en cours de traitement doit être supprimé */
+  if(liste->el.pid == valeur)
+  {
+    /* On le supprime en prenant soin de mémoriser 
+    l'adresse de l'élément suivant */
+    mail* tmp = liste->next;
+    printf("On a del l'el %d\n",valeur);
+    free(liste);
+    /* L'élément ayant été supprimé, la liste commencera à l'élément suivant
+    pointant sur une liste qui ne contient plus aucun élément ayant la valeur recherchée */
+    tmp = delElement(tmp, valeur);
+    return tmp;
+  }
+  else
+  {
+    /* Si l'élement en cours de traitement ne doit pas être supprimé,
+    alors la liste finale commencera par cet élément et suivra une liste ne contenant
+    plus d'élément ayant la valeur recherchée */
+    liste->next = delElement(liste->next, valeur);
+    return liste;
+  }
+}
+
+chain find_by_pid(chain liste, int valeur)
+{
+  mail *tmp=liste;
+  /* Tant que l'on n'est pas au bout de la liste */
+  while(tmp != NULL)
+  {
+    if(tmp->el.pid == valeur)
+    {
+      /* Si l'élément a la valeur recherchée, on renvoie son adresse */
+      return tmp;
+    }
+    tmp = tmp->next;
+  }
+  return NULL;
+}
+
+chain find_by_packet(chain liste, packet valeur)
+{
+  mail *tmp=liste;
+  /* Tant que l'on n'est pas au bout de la liste */
+  while(tmp != NULL)
+  {
+    if(is_equal(tmp->el,valeur))
+    {
+      /* Si l'élément a la valeur recherchée, on renvoie son adresse */
+      return tmp;
+    }
+    tmp = tmp->next;
+  }
+  return NULL;
+}
+
+int is_equal(packet p1, packet p2) {
+  if(p1.pid == p2.pid)
+    return 1;
+  else
+    return 0;
+}
+
 int is_new(int pid, int *packets) {
 	int i=0;
 	while(pid>=packets[i])
@@ -136,6 +327,57 @@ void print_stats_lost_packets(node* reseau, int size, int total) {
 
 }
 
+void create_packet(packet *p_temp, float t, int code, int pid, int fid, int tos, int s, int d, int pos) {
+  p_temp->source = s;
+  p_temp->destination= d;
+  p_temp->pid = pid;
+  p_temp->fid = fid;
+  p_temp->last_time;
+//  p_temp->size
+  p_temp->pos = pos;
+}
+
+void analyze_and_do_packet(packet *p_temp, chain *temp, int code) {
+  if(code == 0) {
+    //Rajouter le paquet au début de la liste
+    printf("analyze_and_do_packet : c'est une creation ... ");
+    //print_packet(p_temp);
+    *temp = add_chain(*temp, p_temp);
+    printf("Done\n");
+  }
+  else if((code == 1) || (code == 2)) {
+    //Mettre à jour les données du paquet qui existe déjà
+    printf("analyze_and_do_packet : c'est une modification, on cherche ... ");
+    //print_packet(p_temp);
+    *temp = find_by_pid(*temp, p_temp->pid);
+    if(*temp==NULL) {
+      printf("\nanalyse_and_do_packet : probleme, paquet en cours n'a pas ete cree\n");
+      exit(-1);
+    }
+    else {
+      printf("Done\n");
+      printf("analyze_and_do_packet : c'est une modification : on modifie ... ");
+      copy(&(*temp)->el, p_temp);
+      printf("Done\n");
+    }
+  }
+  else if(code==3){
+    printf("analyze_and_do_packet : paquet arrive a destination, c'est une suppression\n");
+    //Supprimer le paquet car il est détruit ou arrivé à destination
+    //Mettre à jour les statistiques
+    *temp= delElement(*temp, p_temp->pid);
+  }
+  else if(code==4) {
+    printf("analyze_and_do_packet : paquet %d destroy, c'est une suppression ... ",p_temp->pid);
+    *temp= delElement(*temp, p_temp->pid);
+    printf("Done\n");
+  }
+  else {
+      printf("analyse_and_do_packet : probleme, code : %d n'existe pas\n", code);
+      exit(-1);
+  }
+}
+
 int main(int argc, char *argv[]) {
 	FILE* fichier = fopen(argv[1],"r");
 	FILE* matrice = fopen(argv[2],"r");
@@ -147,26 +389,34 @@ int main(int argc, char *argv[]) {
 
   node test = {10,0,0,0,0,0};
 
+  chain temp = NULL;
+  packet p_temp = {0};
+  
 	nb_node = analyze_matrix(matrice);
 	
 	reseau = calloc(nb_node, sizeof(node));
-
-  printf("\nTest : %d\n", reseau[5].nb_emited);
+  
+  /*mail* nouvelElement = malloc(sizeof(mail));
+  /* On assigne la valeur au nouvel élément 
+  printf("\nTest : %d\n",nouvelElement->el.pid);*/
   
 	if(fichier != NULL) {
 		printf("On commence l'analyse du fichier\n");
 		while(fscanf(fichier, "%f %d ", &t, &code)==2) { // Tant que le fscanf recupere 2 valeurs, on continue de parser
 			if(code==4) {
-				fscanf(fichier, "%d %d %d N%d N%d N%d\n", &pid, &fid, &tos, &s, &d, &pos);    
-//				printf("%f %d %d %d %d N%d N%d N%d\n", t, code, pid, fid, tos, s, d, pos);
-
+				fscanf(fichier, "%d %d %d N%d N%d N%d\n", &pid, &fid, &tos, &s, &d, &pos);
 			}
 			else {
 				fscanf(fichier, "%d %d %d %d N%d N%d N%d\n", &pid, &fid, &tos, &bif, &s, &d, &pos);
-//				printf("%f %d %d %d %d %d N%d N%d N%d\n", t, code, pid, fid, tos, bif, s, d, pos);
 			}
+			create_packet(&p_temp,t, code, pid, fid, tos, s, d, pos);   // On met les valeurs dans p_temp
+			printf("On a cree le paquet p_temp : \n");
+			print_packet(&p_temp);
+			analyze_and_do_packet(&p_temp, &temp, code);
 			new_packet(reseau, code, pid, pos, 2);
 			nb_fid = max_fid(fid);
+			if(code==3)
+			  break;
 		}
 		if(feof(fichier)) {
 			printf("Fin de l'analyse du fichier\n\n");

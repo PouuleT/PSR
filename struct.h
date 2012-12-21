@@ -11,12 +11,23 @@ typedef struct node{
 }node;
 
 typedef struct packet{
-  node source;
-  node destination;
+  int source;
+  int destination;
+  int pid;
+  int fid;
   double departure;
   double last_time;
   int size;
+  int pos;
 }packet;
+
+typedef struct mail{
+  packet el;
+  struct mail *next;
+}mail;
+
+typedef mail* chain;
+
 
 typedef struct log{
   int nb_packets;
