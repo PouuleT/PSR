@@ -403,6 +403,9 @@ void analyze_and_do_packet(packet *p_temp, chain *temp, int code, log *stats) {
     else {
       //printf("Done\n");
       //printf("analyze_and_do_packet : c'est une modification : on modifie ... ");
+      if((code==2)) {
+        stats->total_wait = stats->total_wait + (p_temp->last_time - temp_el->el.last_time);
+      }
       copy(&(temp_el->el), p_temp,0);
       //printf("Done\n");
     }
@@ -415,12 +418,12 @@ void analyze_and_do_packet(packet *p_temp, chain *temp, int code, log *stats) {
     //afficherListe(*temp);
     //printf("\n");
     //printf("id de l'el : %d\n", p_temp->pid);
-    chain test = find_by_pid(*temp,p_temp->pid);
+    chain temp_el = find_by_pid(*temp,p_temp->pid);
     //printf("Date de depart : %f\n",test->el.departure);
     //printf("last_time : %f\n",p_temp->last_time);
     //printf("delai d'acheminement : %f\n",p_temp->last_time-p_temp->departure);
     //pause();
-    stats->total_delay=stats->total_delay+(p_temp->last_time)-test->el.departure;
+    stats->total_delay=stats->total_delay+(p_temp->last_time)-temp_el->el.departure;
     *temp = delElement(*temp, p_temp->pid);
   }
   else if(code==4) {
@@ -454,13 +457,6 @@ int main(int argc, char *argv[]) {
 	
 	reseau = calloc(nb_node, sizeof(node));
 	
-	/*printf("sizeof(mail)=%d\n",sizeof(mail));
-	printf("sizeof(packet)=%d\n",sizeof(packet));	
-	printf("sizeof(chain)=%d\n",sizeof(chain));
-	pause();
-  mail* nouvelElement = malloc(sizeof(mail));
-  On assigne la valeur au nouvel élément 
-  printf("\nTest : %d\n",nouvelElement->el.pid);*/
   
 	if(fichier != NULL) {
 		printf("On commence l'analyse du fichier\n");
@@ -494,8 +490,12 @@ int main(int argc, char *argv[]) {
 			printf("Nombre de paquets transmis : %d\n", new_packet(NULL,0,0,0,1));
 			printf("Nombre de paquets recus : %d\n", new_packet(NULL,0,0,0,3));
 			printf("Nombre de paquets perdus : %d\n", new_packet(NULL,0,0,0,4));
+			printf("Taux de perte : %f\n", (float)new_packet(NULL,0,0,0,4)/new_packet(NULL,0,0,0,0)*100);
+			printf("Nombre de sauts moyen : %f\n", (float)new_packet(NULL,0,0,0,1)/new_packet(NULL,0,0,0,0));
 			printf("Delai moyen de bout en bout : %f\n", (float)stats.total_delay/new_packet(NULL,0,0,0,3));
-			printf("Taux de perte : %f\n", (float)new_packet(NULL,0,0,0,4)/new_packet(NULL,0,0,0,0));
+      printf("Temps total cumulé d'attente : %f\n",stats.total_wait);
+      printf("Temps moyen d'attente par files : %f\n", (float)stats.total_wait/(new_packet(NULL,0,0,0,1)+new_packet(NULL,0,0,0,0)));
+      printf("Temps moyen d'attente par paquets : %f\n", (float)stats.total_wait/(new_packet(NULL,0,0,0,3)+new_packet(NULL,0,0,0,4)));
 			print_stats_lost_packets(reseau, nb_node, new_packet(NULL,0,0,0,4));
 			
 		}
