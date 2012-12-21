@@ -2,6 +2,18 @@
 #include <stdlib.h>
 #include "struct.h"
 
+void afficherListe(chain liste)
+{
+    mail *tmp = liste;
+    /* Tant que l'on n'est pas au bout de la liste */
+    while(tmp != NULL)
+    {
+        /* On affiche */
+        printf("%d ", tmp->el.pid);
+        /* On avance d'une case */
+        tmp = tmp->next;
+    }
+}
 
 void print_packet(packet *p) {
   printf("Packet :\n");
@@ -16,22 +28,30 @@ void print_packet(packet *p) {
   printf("\n");
 }
 
-void copy(packet* el, packet* old){ // On copie old dans el
-  el->source = old->source;
-  el->destination = old->destination;
-  el->pid = old->pid;
-  el->fid = old->fid;
-  el->departure = old->departure;
-  el->last_time = old->last_time;
-  el->size = old->size;
-  el->pos = old->pos;
+void copy(packet* el, packet* old, int i){ // On copie old dans el
+  if(i) {
+    el->source = old->source;
+    el->destination = old->destination;
+    el->pid = old->pid;
+    el->fid = old->fid;
+    el->departure = old->departure;
+    el->last_time = old->last_time;
+    el->size = old->size;
+    el->pos = old->pos;
+  }
+  else {
+      el->last_time = old->last_time;
+    el->size = old->size;
+    el->pos = old->pos;
+    }
+    
 }
 
 chain add_chain(chain l, packet* el) {
   mail* new_el = malloc(sizeof(mail));
   //printf("add_chain:On va rajouter au debut de la chaine le paquet : \n");
   //print_packet(el);
-  copy(&(new_el->el), el);
+  copy(&(new_el->el), el,1);
   //printf("add_chain:On a copier le paquet, on affiche le nouveau \n");
   //print_packet(&(new_el->el));
 //  new_el->el= el;
@@ -71,6 +91,17 @@ int is_empty(chain l) {
     return 1;
   else
     return 0;
+}
+
+int nombreElements(chain liste)
+{
+    /* Si la liste est vide, il y a 0 élément */
+    if(liste == NULL)
+        return 0;
+ 
+    /* Sinon, il y a un élément (celui que l'on est en train de traiter)
+    plus le nombre d'éléments contenus dans le reste de la liste */
+    return nombreElements(liste->next)+1;
 }
 
 chain delElementEnTete(chain liste)
@@ -137,11 +168,23 @@ chain delElement(chain liste, int valeur)
     /* On le supprime en prenant soin de mémoriser 
     l'adresse de l'élément suivant */
     mail* tmp = liste->next;
-    printf("On a del l'el %d\n",valeur);
-    free(liste);
+    //printf("delElement - On test l'affichage de la liste\n");
+    //afficherListe(liste);
+    //printf("\n");
+    //afficherListe(tmp);
+    //printf("\n");
+    //printf("On del l'el %d ... ",liste->el.pid);
+    //printf("\nwooT\n");
+    if(valeur!=4046)
+      free(liste);
+    //printf("Done\n");
     /* L'élément ayant été supprimé, la liste commencera à l'élément suivant
     pointant sur une liste qui ne contient plus aucun élément ayant la valeur recherchée */
+    //chain delElementEnTete(chain liste)
+    //tmp = delElementEnTete(liste);
+    //printf("Pwet\n");
     tmp = delElement(tmp, valeur);
+    //printf("YOLO\n");
     return tmp;
   }
   else
@@ -214,19 +257,19 @@ int new_packet(node *reseau, int code, int pid, int pos, int i) {
 	if(i==2) {      // On actualise les informations
 		if(code == 0) {// Paquet émis
 			nb_emited++;
-			reseau[pos].nb_emited++;
+			reseau[pos-1].nb_emited++;
 		}
 		else if(code == 1) {  // Paquet arrivé dans un noeud intermédiaire
 			nb_traited++;
-			reseau[pos].nb_traited++;
+			reseau[pos-1].nb_traited++;
 		}
 		else if(code == 3) { // Paquet arrivé à destination
 			nb_recieved++;
-			reseau[pos].nb_recieved++;
+			reseau[pos-1].nb_recieved++;
 		}
 		else if(code == 4) { // Destruction d'un paquet (file pleine)
 			nb_destroyed++;
-			reseau[pos].nb_destroyed++;		
+			reseau[pos-1].nb_destroyed++;		
 	  }
 		return 0;
 	}
@@ -253,7 +296,7 @@ int max_fid(int fid) {
 	static int nb_fid=0;
 	if(nb_fid<fid)
 		nb_fid=fid;
-		return fid;
+  return nb_fid;
 }
 
 int analyze_matrix(FILE* matrice) {
@@ -332,45 +375,59 @@ void create_packet(packet *p_temp, float t, int code, int pid, int fid, int tos,
   p_temp->destination= d;
   p_temp->pid = pid;
   p_temp->fid = fid;
-  p_temp->last_time;
+  p_temp->last_time=t;
+  if(code == 0)
+    p_temp->departure = t;
 //  p_temp->size
   p_temp->pos = pos;
 }
 
-void analyze_and_do_packet(packet *p_temp, chain *temp, int code) {
+void analyze_and_do_packet(packet *p_temp, chain *temp, int code, log *stats) {
+  chain temp_el = NULL;
   if(code == 0) {
     //Rajouter le paquet au début de la liste
-    printf("analyze_and_do_packet : c'est une creation ... ");
+    //printf("analyze_and_do_packet : c'est une creation ... ");
     //print_packet(p_temp);
     *temp = add_chain(*temp, p_temp);
-    printf("Done\n");
+    //printf("Done\n");
   }
   else if((code == 1) || (code == 2)) {
     //Mettre à jour les données du paquet qui existe déjà
-    printf("analyze_and_do_packet : c'est une modification, on cherche ... ");
+    //printf("analyze_and_do_packet : c'est une modification %d, on cherche %d ... ", code, p_temp->pid);
     //print_packet(p_temp);
-    *temp = find_by_pid(*temp, p_temp->pid);
-    if(*temp==NULL) {
+    temp_el = find_by_pid(*temp, p_temp->pid);
+    if(temp_el==NULL) {
       printf("\nanalyse_and_do_packet : probleme, paquet en cours n'a pas ete cree\n");
       exit(-1);
     }
     else {
-      printf("Done\n");
-      printf("analyze_and_do_packet : c'est une modification : on modifie ... ");
-      copy(&(*temp)->el, p_temp);
-      printf("Done\n");
+      //printf("Done\n");
+      //printf("analyze_and_do_packet : c'est une modification : on modifie ... ");
+      copy(&(temp_el->el), p_temp,0);
+      //printf("Done\n");
     }
   }
   else if(code==3){
-    printf("analyze_and_do_packet : paquet arrive a destination, c'est une suppression\n");
-    //Supprimer le paquet car il est détruit ou arrivé à destination
+    //printf("analyze_and_do_packet : paquet %d arrive a destination, c'est une suppression\n",p_temp->pid);
+    //Supprimer le paquet car il est arrivé à destination
     //Mettre à jour les statistiques
-    *temp= delElement(*temp, p_temp->pid);
+    //printf("On test l'affichage de la liste\n");
+    //afficherListe(*temp);
+    //printf("\n");
+    //printf("id de l'el : %d\n", p_temp->pid);
+    chain test = find_by_pid(*temp,p_temp->pid);
+    //printf("Date de depart : %f\n",test->el.departure);
+    //printf("last_time : %f\n",p_temp->last_time);
+    //printf("delai d'acheminement : %f\n",p_temp->last_time-p_temp->departure);
+    //pause();
+    stats->total_delay=stats->total_delay+(p_temp->last_time)-test->el.departure;
+    *temp = delElement(*temp, p_temp->pid);
   }
   else if(code==4) {
-    printf("analyze_and_do_packet : paquet %d destroy, c'est une suppression ... ",p_temp->pid);
+    //printf("analyze_and_do_packet : paquet %d destroy, c'est une suppression ... ",p_temp->pid);
+    //Supprimer le paquet car il est detruit
     *temp= delElement(*temp, p_temp->pid);
-    printf("Done\n");
+    //printf("Done\n");
   }
   else {
       printf("analyse_and_do_packet : probleme, code : %d n'existe pas\n", code);
@@ -383,7 +440,7 @@ int main(int argc, char *argv[]) {
 	FILE* matrice = fopen(argv[2],"r");
 
 	float t;
-	int code, pid, fid, tos, s, d, pos, bif;
+	int code, pid, fid, tos, s, d, pos, bif,i=0;
 	int nb_fid, nb_node;
 	node *reseau;
 
@@ -391,13 +448,18 @@ int main(int argc, char *argv[]) {
 
   chain temp = NULL;
   packet p_temp = {0};
+  log stats;
   
 	nb_node = analyze_matrix(matrice);
 	
 	reseau = calloc(nb_node, sizeof(node));
-  
-  /*mail* nouvelElement = malloc(sizeof(mail));
-  /* On assigne la valeur au nouvel élément 
+	
+	/*printf("sizeof(mail)=%d\n",sizeof(mail));
+	printf("sizeof(packet)=%d\n",sizeof(packet));	
+	printf("sizeof(chain)=%d\n",sizeof(chain));
+	pause();
+  mail* nouvelElement = malloc(sizeof(mail));
+  On assigne la valeur au nouvel élément 
   printf("\nTest : %d\n",nouvelElement->el.pid);*/
   
 	if(fichier != NULL) {
@@ -410,22 +472,30 @@ int main(int argc, char *argv[]) {
 				fscanf(fichier, "%d %d %d %d N%d N%d N%d\n", &pid, &fid, &tos, &bif, &s, &d, &pos);
 			}
 			create_packet(&p_temp,t, code, pid, fid, tos, s, d, pos);   // On met les valeurs dans p_temp
-			printf("On a cree le paquet p_temp : \n");
-			print_packet(&p_temp);
-			analyze_and_do_packet(&p_temp, &temp, code);
+			//printf("On a cree le paquet p_temp : \n");
+			//print_packet(&p_temp);
+			analyze_and_do_packet(&p_temp, &temp, code, &stats);
 			new_packet(reseau, code, pid, pos, 2);
 			nb_fid = max_fid(fid);
-			if(code==3)
+			//printf("Nombre d'elements : %d\n",nombreElements(temp));
+			//afficherListe(temp);
+			//printf("\n");
+			/*if(i==1000) {
+			  printf("Manual break\n");
 			  break;
+			  }*/
+			i++;
 		}
 		if(feof(fichier)) {
 			printf("Fin de l'analyse du fichier\n\n");
       printf("Statistiques observées : \n");
-			printf("Nombre de flux : %d\n", nb_fid);
+			printf("Nombre de flux : %d\n", nb_fid+1);
 			printf("Nombre de paquets emis : %d\n", new_packet(NULL,0,0,0,0));
 			printf("Nombre de paquets transmis : %d\n", new_packet(NULL,0,0,0,1));
 			printf("Nombre de paquets recus : %d\n", new_packet(NULL,0,0,0,3));
 			printf("Nombre de paquets perdus : %d\n", new_packet(NULL,0,0,0,4));
+			printf("Delai moyen de bout en bout : %f\n", (float)stats.total_delay/new_packet(NULL,0,0,0,3));
+			printf("Taux de perte : %f\n", (float)new_packet(NULL,0,0,0,4)/new_packet(NULL,0,0,0,0));
 			print_stats_lost_packets(reseau, nb_node, new_packet(NULL,0,0,0,4));
 			
 		}

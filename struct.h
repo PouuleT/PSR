@@ -36,6 +36,7 @@ typedef struct log{
 	int nb_traited;
 	int nb_recieved;
 	int nb_destroyed;
+	float total_delay;
 }log;
 
 #endif
